@@ -500,18 +500,34 @@ jobs:
           sed -i '/^CONFIG_STATIC_KEYS=/d' out/.config
           sed -i '/^CONFIG_HAVE_ARCH_JUMP_LABEL=/d' out/.config
           
-          # CRITICAL: Disable FPSIMD and crypto features causing assembly errors
+          # CRITICAL: Disable FPSIMD and ALL crypto features causing assembly errors
           sed -i '/^CONFIG_ARM64_FPSIMD=/d' out/.config
+          sed -i '/^CONFIG_CRYPTO_AES_ARM64=/d' out/.config
           sed -i '/^CONFIG_CRYPTO_AES_ARM64_CE=/d' out/.config
+          sed -i '/^CONFIG_CRYPTO_AES_ARM64_CE_CCM=/d' out/.config
+          sed -i '/^CONFIG_CRYPTO_AES_ARM64_CE_BLK=/d' out/.config
+          sed -i '/^CONFIG_CRYPTO_AES_ARM64_NEON_BLK=/d' out/.config
           sed -i '/^CONFIG_CRYPTO_SHA1_ARM64_CE=/d' out/.config
           sed -i '/^CONFIG_CRYPTO_SHA2_ARM64_CE=/d' out/.config
+          sed -i '/^CONFIG_CRYPTO_SHA256_ARM64=/d' out/.config
+          sed -i '/^CONFIG_CRYPTO_SHA512_ARM64=/d' out/.config
           sed -i '/^CONFIG_CRYPTO_POLY1305_ARM64=/d' out/.config
+          sed -i '/^CONFIG_CRYPTO_CHACHA20_NEON=/d' out/.config
+          sed -i '/^CONFIG_CRYPTO_CRC32_ARM64=/d' out/.config
           
           echo "# CONFIG_ARM64_FPSIMD is not set" >> out/.config
+          echo "# CONFIG_CRYPTO_AES_ARM64 is not set" >> out/.config
           echo "# CONFIG_CRYPTO_AES_ARM64_CE is not set" >> out/.config
+          echo "# CONFIG_CRYPTO_AES_ARM64_CE_CCM is not set" >> out/.config
+          echo "# CONFIG_CRYPTO_AES_ARM64_CE_BLK is not set" >> out/.config
+          echo "# CONFIG_CRYPTO_AES_ARM64_NEON_BLK is not set" >> out/.config
           echo "# CONFIG_CRYPTO_SHA1_ARM64_CE is not set" >> out/.config
           echo "# CONFIG_CRYPTO_SHA2_ARM64_CE is not set" >> out/.config
+          echo "# CONFIG_CRYPTO_SHA256_ARM64 is not set" >> out/.config
+          echo "# CONFIG_CRYPTO_SHA512_ARM64 is not set" >> out/.config
           echo "# CONFIG_CRYPTO_POLY1305_ARM64 is not set" >> out/.config
+          echo "# CONFIG_CRYPTO_CHACHA20_NEON is not set" >> out/.config
+          echo "# CONFIG_CRYPTO_CRC32_ARM64 is not set" >> out/.config
           echo "# CONFIG_ARM64_LSE_ATOMICS is not set" >> out/.config
           echo "# CONFIG_JUMP_LABEL is not set" >> out/.config
           echo "# CONFIG_STATIC_KEYS is not set" >> out/.config
