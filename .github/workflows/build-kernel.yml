@@ -423,9 +423,13 @@ jobs:
           echo "# CONFIG_ARM64_ERRATUM_834220 is not set" >> out/.config
           echo "# CONFIG_ARM64_ERRATUM_845719 is not set" >> out/.config
           echo "# CONFIG_ARM64_ERRATUM_843419 is not set" >> out/.config
+          echo "# CONFIG_ARM64_ERRATUM_1024718 is not set" >> out/.config
+          echo "# CONFIG_ARM64_ERRATUM_1165522 is not set" >> out/.config
+          echo "# CONFIG_ARM64_ERRATUM_1286807 is not set" >> out/.config
           echo "# CONFIG_CAVIUM_ERRATUM_22375 is not set" >> out/.config
           echo "# CONFIG_CAVIUM_ERRATUM_23154 is not set" >> out/.config
           echo "# CONFIG_CAVIUM_ERRATUM_27456 is not set" >> out/.config
+          echo "# CONFIG_CAVIUM_ERRATUM_30115 is not set" >> out/.config
           echo "# CONFIG_ARM64_USE_LSE_ATOMICS is not set" >> out/.config
           
           # CRITICAL: Try to completely disable alternative instructions if possible
