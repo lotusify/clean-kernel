@@ -70,9 +70,12 @@ jobs:
 
     - name: Cache APT packages
       uses: actions/cache@v3
+      if: always()
       with:
-        path: /var/cache/apt/archives
-        key: apt-cache-${{ runner.os }}-${{ hashFiles('**/build-kernel.yml') }}
+        path: |
+          /var/cache/apt/archives
+          /var/lib/apt/lists
+        key: apt-cache-${{ runner.os }}-${{ hashFiles('.github/workflows/build-kernel.yml') }}
         restore-keys: |
           apt-cache-${{ runner.os }}-
 
@@ -95,7 +98,8 @@ jobs:
         gcc-arm-linux-gnueabi \
         binutils make python3 python2 libssl-dev build-essential \
         bc bison flex unzip ca-certificates xz-utils \
-        mkbootimg cpio device-tree-compiler git git-lfs gawk
+        mkbootimg cpio device-tree-compiler git git-lfs gawk \
+        dos2unix
         
         # Setup toolchain directory structure
         if [ "${{ steps.cache-proton.outputs.cache-hit }}" != 'true' ]; then
@@ -148,6 +152,22 @@ jobs:
         #   rm -rf ./android/abi_gki_protected_exports*
         # fi
         # ===== END DISABLED SECTION =====
+        
+        # CRITICAL: Clean and restore all Kconfig files to prevent encoding issues
+        echo "🔧 DEBUG: Cleaning and restoring Kconfig files..."
+        git checkout HEAD -- arch/arm64/Kconfig
+        git checkout HEAD -- arch/arm64/Kconfig.platforms  
+        git checkout HEAD -- Kconfig
+        
+        # CRITICAL: Convert any Windows line endings to Unix (main cause of Kconfig errors)
+        echo "🔧 DEBUG: Converting line endings from Windows CRLF to Unix LF..."
+        dos2unix arch/arm64/Kconfig 2>/dev/null || true
+        dos2unix arch/arm64/Kconfig.platforms 2>/dev/null || true
+        dos2unix Kconfig 2>/dev/null || true
+        
+        # Verify line endings are fixed
+        echo "📋 DEBUG: Verifying line endings..."
+        file arch/arm64/Kconfig | grep -q "ASCII text$" && echo "✅ arch/arm64/Kconfig - Unix LF" || echo "❌ arch/arm64/Kconfig - Still has issues"
         
         # Run make clean/mrproper here, AFTER all patches have been applied
         make clean
@@ -290,7 +310,26 @@ jobs:
         if [ $? -ne 0 ]; then
           echo "❌ ERROR: Defconfig failed! Kconfig file may be corrupted."
           echo "Attempting to restore Kconfig files..."
+          
+          # Comprehensive Kconfig restore
           git checkout HEAD -- arch/arm64/Kconfig
+          git checkout HEAD -- arch/arm64/Kconfig.platforms
+          git checkout HEAD -- Kconfig
+          
+          # CRITICAL: Convert line endings if needed (Windows -> Unix) 
+          echo "🔧 DEBUG: Converting line endings to fix Kconfig parser..."
+          dos2unix arch/arm64/Kconfig 2>/dev/null || true
+          dos2unix arch/arm64/Kconfig.platforms 2>/dev/null || true
+          dos2unix Kconfig 2>/dev/null || true
+          
+          # Verify line endings are now correct
+          file arch/arm64/Kconfig | grep -q "ASCII text$" && echo "✅ Line endings fixed" || echo "❌ Line endings still problematic"
+          
+          # Clean any temp files that might be corrupting the build
+          rm -rf out/.config*
+          rm -rf out/include/config/
+          
+          echo "🔧 DEBUG: Restored and cleaned Kconfig files, retrying defconfig..."
           make O=out ARCH=arm64 ANDROID_MAJOR_VERSION=${{ env.ANDROID }} ${{ env.KERNEL_DEFCONFIG }}
         fi
 
@@ -620,10 +659,19 @@ jobs:
         echo "- ✅ Stock kernel configuration" >> $GITHUB_STEP_SUMMARY
         echo "- 🔒 Samsung RKP/Knox security disabled" >> $GITHUB_STEP_SUMMARY
 
-    # Save Proton-Clang cache regardless of build success/failure
+    # Save caches regardless of build success/failure
     - name: Save Proton-Clang Cache (Always)
       uses: actions/cache/save@v3
       if: always() && steps.cache-proton.outputs.cache-hit != 'true'
       with:
         path: proton-clang
         key: proton-clang-${{ runner.os }}-stable
+
+    - name: Save APT Cache (Always)
+      uses: actions/cache/save@v3
+      if: always()
+      with:
+        path: |
+          /var/cache/apt/archives
+          /var/lib/apt/lists
+        key: apt-cache-${{ runner.os }}-${{ hashFiles('.github/workflows/build-kernel.yml') }}
