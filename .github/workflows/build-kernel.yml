@@ -487,6 +487,7 @@ jobs:
           echo "# CONFIG_CAVIUM_ERRATUM_27456 is not set" >> out/.config
           echo "# CONFIG_CAVIUM_ERRATUM_30115 is not set" >> out/.config
           echo "# CONFIG_ARM64_USE_LSE_ATOMICS is not set" >> out/.config
+          echo "# CONFIG_ARM64_LSE_ATOMICS is not set" >> out/.config
           echo "# CONFIG_UNMAP_KERNEL_AT_EL0 is not set" >> out/.config
           echo "# CONFIG_KASAN is not set" >> out/.config
           echo "# CONFIG_ARM64_PAN is not set" >> out/.config
@@ -498,7 +499,20 @@ jobs:
           sed -i '/^CONFIG_JUMP_LABEL=/d' out/.config
           sed -i '/^CONFIG_STATIC_KEYS=/d' out/.config
           sed -i '/^CONFIG_HAVE_ARCH_JUMP_LABEL=/d' out/.config
-          sed -i '/^CONFIG_ARM64_LSE_ATOMICS=/d' out/.config
+          
+          # CRITICAL: Disable FPSIMD and crypto features causing assembly errors
+          sed -i '/^CONFIG_ARM64_FPSIMD=/d' out/.config
+          sed -i '/^CONFIG_CRYPTO_AES_ARM64_CE=/d' out/.config
+          sed -i '/^CONFIG_CRYPTO_SHA1_ARM64_CE=/d' out/.config
+          sed -i '/^CONFIG_CRYPTO_SHA2_ARM64_CE=/d' out/.config
+          sed -i '/^CONFIG_CRYPTO_POLY1305_ARM64=/d' out/.config
+          
+          echo "# CONFIG_ARM64_FPSIMD is not set" >> out/.config
+          echo "# CONFIG_CRYPTO_AES_ARM64_CE is not set" >> out/.config
+          echo "# CONFIG_CRYPTO_SHA1_ARM64_CE is not set" >> out/.config
+          echo "# CONFIG_CRYPTO_SHA2_ARM64_CE is not set" >> out/.config
+          echo "# CONFIG_CRYPTO_POLY1305_ARM64 is not set" >> out/.config
+          echo "# CONFIG_ARM64_LSE_ATOMICS is not set" >> out/.config
           echo "# CONFIG_JUMP_LABEL is not set" >> out/.config
           echo "# CONFIG_STATIC_KEYS is not set" >> out/.config
           echo "# CONFIG_HAVE_ARCH_JUMP_LABEL is not set" >> out/.config
