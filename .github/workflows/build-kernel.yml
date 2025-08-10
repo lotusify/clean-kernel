@@ -176,6 +176,12 @@ jobs:
         # Fix permissions for build scripts
         chmod +x scripts/clang-android.sh 2>/dev/null || true
         
+        # CRITICAL: Create missing firmware files to prevent build errors
+        echo "🔧 DEBUG: Creating missing firmware files..."
+        mkdir -p firmware
+        touch firmware/exynos7885_acpm_fvp.fw
+        touch firmware/tsp_zinitix/.gitkeep
+        
         # Fix dtc multiple definition issue
         if [ -f "scripts/dtc/dtc-lexer.lex.c" ]; then
           sed -i 's/YYLTYPE yylloc;/extern YYLTYPE yylloc;/' scripts/dtc/dtc-lexer.lex.c 2>/dev/null || true
@@ -492,6 +498,11 @@ jobs:
           echo "# CONFIG_KASAN is not set" >> out/.config
           echo "# CONFIG_ARM64_PAN is not set" >> out/.config
           echo "# CONFIG_ARM64_UAO is not set" >> out/.config
+          
+          # CRITICAL: Disable problematic firmware and empty driver directories
+          sed -i '/^CONFIG_EXTRA_FIRMWARE=/d' out/.config
+          echo "CONFIG_EXTRA_FIRMWARE=\"\"" >> out/.config
+          echo "# CONFIG_FW_LOADER_USER_HELPER is not set" >> out/.config
           
           # This is handled below in the comprehensive alternative instructions section
           
