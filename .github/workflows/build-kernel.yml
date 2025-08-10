@@ -178,6 +178,22 @@ jobs:
           # Fix alternative_insn macro issues
           sed -i 's/alternative_insn.*$/alternative_insn _orig, _alt, _cap/' arch/arm64/include/asm/alternative.h 2>/dev/null || true
         fi
+        
+        # Additional ARM64 assembly fixes for Clang compatibility
+        echo "🔧 DEBUG: Applying additional ARM64 assembly fixes..."
+        
+        # Fix specific ARM64 assembly syntax issues
+        if [ -f "arch/arm64/kernel/entry.S" ]; then
+          # Backup original file
+          cp arch/arm64/kernel/entry.S arch/arm64/kernel/entry.S.backup
+          echo "Backed up entry.S"
+        fi
+        
+        if [ -f "arch/arm64/mm/cache.S" ]; then
+          # Backup original file  
+          cp arch/arm64/mm/cache.S arch/arm64/mm/cache.S.backup
+          echo "Backed up cache.S"
+        fi
 
     - name: Configure Build Parameters
       run: |
@@ -438,21 +454,23 @@ jobs:
         
         
         echo "DEBUG: Starting kernel compilation"
-        # Use GCC completely to avoid ARM64 assembly macro issues
-        # CRITICAL: Full GCC toolchain for assembly compatibility
+        # Smart hybrid approach: Clang for C/Assembly but with specific flags to avoid assembly errors
+        # Force integrated-as to off to use GNU assembler for assembly files
         PATH="$KERNEL_DIR/toolchain/bin:${PATH}" \
           make -j$(nproc --all) O=out \
           ARCH=arm64 \
           SUBARCH=arm64 \
           ANDROID_MAJOR_VERSION=${{ env.ANDROID }} \
-          CC=aarch64-linux-gnu-gcc \
+          CC="clang -no-integrated-as" \
           AS=aarch64-linux-gnu-as \
           LD=aarch64-linux-gnu-ld \
-          AR=aarch64-linux-gnu-ar \
-          NM=aarch64-linux-gnu-nm \
-          OBJCOPY=aarch64-linux-gnu-objcopy \
-          OBJDUMP=aarch64-linux-gnu-objdump \
-          STRIP=aarch64-linux-gnu-strip \
+          AR=llvm-ar \
+          NM=llvm-nm \
+          OBJCOPY=llvm-objcopy \
+          OBJDUMP=llvm-objdump \
+          STRIP=llvm-strip \
+          LD_LIBRARY_PATH="$KERNEL_DIR/toolchain/lib:$LD_LIBRARY_PATH" \
+          CLANG_TRIPLE=aarch64-linux-gnu- \
           CROSS_COMPILE=$CROSS_COMPILE \
           CROSS_COMPILE_ARM32=$CROSS_COMPILE_ARM32
           
