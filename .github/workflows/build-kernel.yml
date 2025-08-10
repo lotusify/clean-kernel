@@ -160,6 +160,12 @@ jobs:
         if [ -f "arch/arm64/kernel/vdso/gettimeofday.S" ]; then
           sed -i 's/clock_gettime_return, shift=1/clock_gettime_return shift=1/' arch/arm64/kernel/vdso/gettimeofday.S 2>/dev/null || true
         fi
+        
+        # Fix VDSO linker script issues for ARM64
+        if [ -f "arch/arm64/kernel/vdso/Makefile" ]; then
+          sed -i 's/-melf_aarch64/-maarch64linux/' arch/arm64/kernel/vdso/Makefile 2>/dev/null || true
+          sed -i 's/-melf_aarch64_be/-maarch64linuxb/' arch/arm64/kernel/vdso/Makefile 2>/dev/null || true
+        fi
 
     - name: Configure Build Parameters
       run: |
@@ -224,7 +230,11 @@ jobs:
         export OBJDUMP=llvm-objdump
         export OBJCOPY=llvm-objcopy
         export STRIP=llvm-strip
+        export LD=ld.lld
         export KCFLAGS=-w
+        
+        # CRITICAL: Set linker properly for ARM64
+        export LDFLAGS_MODULE="-T $(pwd)/scripts/module.lds"
         
         # Create localversion for proper naming (keep short)
         REV=${{ github.run_number }}
@@ -300,6 +310,12 @@ jobs:
           # CRITICAL: Use 'yes' to automatically answer prompts without overwriting configs
           echo "🔧 DEBUG: Automatically answering config prompts without overwriting custom configs..."
           yes "" | make O=out ARCH=arm64 ANDROID_MAJOR_VERSION=${{ env.ANDROID }} oldconfig > /dev/null 2>&1 || true
+          
+          # DEBUG: Verify Samsung configs are actually disabled
+          echo "🔍 DEBUG: Verifying Samsung security configs after oldconfig..."
+          echo "TIMA status: $(grep -c "CONFIG_TIMA=y" out/.config || echo "0") should be 0"
+          echo "UH_RKP status: $(grep -c "CONFIG_UH_RKP=y" out/.config || echo "0") should be 0"
+          echo "DEFEX status: $(grep -c "CONFIG_SECURITY_DEFEX=y" out/.config || echo "0") should be 0"
           
           echo "🔒 DEBUG: Samsung RKP/Knox security features disabled successfully!"
         fi
@@ -461,17 +477,23 @@ jobs:
         
         
         echo "DEBUG: Starting kernel compilation"
-        # Build exactly like build.sh
-        PATH="$KERNEL_DIR/toolchain/bin:$KERNEL_DIR/toolchain/bin:${PATH}" \
+        # Build exactly like build.sh with proper linker configuration
+        PATH="$KERNEL_DIR/toolchain/bin:${PATH}" \
           make -j$(nproc --all) O=out \
           ARCH=arm64 \
+          SUBARCH=arm64 \
           ANDROID_MAJOR_VERSION=${{ env.ANDROID }} \
-          LLVM_DIS=llvm-dis AR=llvm-ar NM=llvm-nm LD=ld.lld OBJDUMP=llvm-objdump STRIP=llvm-strip \
+          LLVM_DIS=llvm-dis \
+          AR=llvm-ar \
+          NM=llvm-nm \
+          LD=ld.lld \
+          OBJDUMP=llvm-objdump \
+          STRIP=llvm-strip \
           CC=clang \
           LD_LIBRARY_PATH="$KERNEL_DIR/toolchain/lib:$LD_LIBRARY_PATH" \
           CLANG_TRIPLE=aarch64-linux-gnu- \
-          CROSS_COMPILE=$GCC_ARM64_FILE \
-          CROSS_COMPILE_ARM32=$GCC_ARM32_FILE
+          CROSS_COMPILE=$CROSS_COMPILE \
+          CROSS_COMPILE_ARM32=$CROSS_COMPILE_ARM32
           
         # Copy files exactly like build.sh
         if [ -f "out/arch/arm64/boot/Image" ]; then
