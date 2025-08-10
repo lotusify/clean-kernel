@@ -457,8 +457,8 @@ jobs:
         
         
         echo "DEBUG: Starting kernel compilation"
-        # Simple approach: Use Clang with integrated assembler (default)
-        # But with specific CFLAGS to avoid problematic features
+        # Final approach: Pure Clang with integrated assembler as Samsung designed
+        # Use only GNU linker for VDSO fixes, let Clang handle everything else
         PATH="$KERNEL_DIR/toolchain/bin:${PATH}" \
           make -j$(nproc --all) O=out \
           ARCH=arm64 \
@@ -471,7 +471,7 @@ jobs:
           OBJCOPY=llvm-objcopy \
           OBJDUMP=llvm-objdump \
           STRIP=llvm-strip \
-          KCFLAGS="-w -Wno-unknown-warning-option -fno-integrated-as" \
+          KCFLAGS="-w -Wno-unknown-warning-option" \
           LD_LIBRARY_PATH="$KERNEL_DIR/toolchain/lib:$LD_LIBRARY_PATH" \
           CLANG_TRIPLE=aarch64-linux-gnu- \
           CROSS_COMPILE=$CROSS_COMPILE \
