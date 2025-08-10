@@ -573,6 +573,23 @@ jobs:
           # Then answer 'n' to any remaining prompts to disable problematic features
           yes n | make O=out ARCH=arm64 ANDROID_MAJOR_VERSION=${{ env.ANDROID }} oldconfig > /dev/null 2>&1 || true
 
+          # CRITICAL: Apply disables AFTER oldconfig to ensure they stick
+          echo "🔧 DEBUG: Re-applying critical disables after oldconfig..."
+          
+          # Disable empty subsystems causing linker errors
+          sed -i '/^CONFIG_SOUND=/d' out/.config
+          sed -i '/^CONFIG_SND=/d' out/.config
+          sed -i '/^CONFIG_DRM=/d' out/.config
+          sed -i '/^CONFIG_HSI=/d' out/.config
+          
+          echo "# CONFIG_SOUND is not set" >> out/.config
+          echo "# CONFIG_SND is not set" >> out/.config
+          echo "# CONFIG_DRM is not set" >> out/.config
+          echo "# CONFIG_HSI is not set" >> out/.config
+          
+          # Run oldconfig one more time to finalize
+          yes n | make O=out ARCH=arm64 ANDROID_MAJOR_VERSION=${{ env.ANDROID }} oldconfig > /dev/null 2>&1 || true
+
           echo "DEBUG: Basic kernel configs applied. Problematic ARM64 errata and alternatives disabled."
         fi
 
