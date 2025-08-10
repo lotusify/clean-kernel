@@ -189,17 +189,8 @@ jobs:
         # Apply comprehensive ARM64 fixes for Clang assembler
         echo "🔧 DEBUG: Patching ARM64 alternative instructions for Clang compatibility..."
         
-        # Disable all ARM64 CPU erratum workarounds that use alternative instructions
-        if [ -f "arch/arm64/Kconfig" ]; then
-          # Backup Kconfig
-          cp arch/arm64/Kconfig arch/arm64/Kconfig.backup
-          
-          # Comment out or disable problematic erratum configs
-          sed -i 's/^config ARM64_ERRATUM_/#config ARM64_ERRATUM_/g' arch/arm64/Kconfig 2>/dev/null || true
-          sed -i 's/^config ARM64_WORKAROUND_/#config ARM64_WORKAROUND_/g' arch/arm64/Kconfig 2>/dev/null || true
-          sed -i 's/^config CAVIUM_ERRATUM_/#config CAVIUM_ERRATUM_/g' arch/arm64/Kconfig 2>/dev/null || true
-          sed -i 's/^config QCOM_FALKOR_ERRATUM_/#config QCOM_FALKOR_ERRATUM_/g' arch/arm64/Kconfig 2>/dev/null || true
-        fi
+        # Don't modify Kconfig directly - we'll handle it via .config instead
+        echo "🔧 DEBUG: Will disable erratum via .config instead of modifying Kconfig"
         
         if [ -f "arch/arm64/mm/cache.S" ]; then
           # Backup original file  
@@ -293,7 +284,15 @@ jobs:
         
         # Make defconfig exactly like build.sh
         echo "DEBUG: Making defconfig"
-        make O=out ARCH=arm64 ANDROID_MAJOR_VERSION=${{ env.ANDROID }} ${{ env.KERNEL_DEFCONFIG }} > /dev/null
+        # Run defconfig with verbose output to catch any issues early
+        make O=out ARCH=arm64 ANDROID_MAJOR_VERSION=${{ env.ANDROID }} ${{ env.KERNEL_DEFCONFIG }}
+        
+        if [ $? -ne 0 ]; then
+          echo "❌ ERROR: Defconfig failed! Kconfig file may be corrupted."
+          echo "Attempting to restore Kconfig files..."
+          git checkout HEAD -- arch/arm64/Kconfig
+          make O=out ARCH=arm64 ANDROID_MAJOR_VERSION=${{ env.ANDROID }} ${{ env.KERNEL_DEFCONFIG }}
+        fi
 
         # 🔒 DISABLE SAMSUNG SECURITY FEATURES AUTOMATICALLY
         echo "🔒 DEBUG: Disabling Samsung RKP/Knox security features..."
@@ -361,9 +360,7 @@ jobs:
           sed -i '/^CONFIG_VDSO=/d' out/.config
           echo "# CONFIG_VDSO is not set" >> out/.config
           
-          # CRITICAL: Use 'yes' to automatically answer prompts without overwriting configs
-          echo "🔧 DEBUG: Automatically answering config prompts without overwriting custom configs..."
-          yes "" | make O=out ARCH=arm64 ANDROID_MAJOR_VERSION=${{ env.ANDROID }} oldconfig > /dev/null 2>&1 || true
+          # This will be handled later after all config modifications
           
           # DEBUG: Verify Samsung configs are actually disabled
           echo "🔍 DEBUG: Verifying Samsung security configs after oldconfig..."
@@ -467,6 +464,23 @@ jobs:
           sed -i '/^CONFIG_STATIC_KEYS=/d' out/.config
           echo "# CONFIG_JUMP_LABEL is not set" >> out/.config
           echo "# CONFIG_STATIC_KEYS is not set" >> out/.config
+          
+          # CRITICAL: Force disable problematic Cortex-A53 errata that use alternatives
+          sed -i '/^CONFIG_ARM64_ERRATUM_826319=/d' out/.config
+          sed -i '/^CONFIG_ARM64_ERRATUM_827319=/d' out/.config
+          sed -i '/^CONFIG_ARM64_ERRATUM_824069=/d' out/.config
+          echo "# CONFIG_ARM64_ERRATUM_826319 is not set" >> out/.config
+          echo "# CONFIG_ARM64_ERRATUM_827319 is not set" >> out/.config  
+          echo "# CONFIG_ARM64_ERRATUM_824069 is not set" >> out/.config
+          
+          # Use 'yes n' to auto-answer No to all new config prompts
+          echo "🔧 DEBUG: Auto-answering 'No' to config prompts to disable erratum..."
+          
+          # CRITICAL: First run olddefconfig to set proper defaults
+          make O=out ARCH=arm64 ANDROID_MAJOR_VERSION=${{ env.ANDROID }} olddefconfig > /dev/null 2>&1 || true
+          
+          # Then answer 'n' to any remaining prompts to disable problematic features
+          yes n | make O=out ARCH=arm64 ANDROID_MAJOR_VERSION=${{ env.ANDROID }} oldconfig > /dev/null 2>&1 || true
 
           echo "DEBUG: Basic kernel configs applied. Problematic ARM64 errata and alternatives disabled."
         fi
@@ -516,8 +530,8 @@ jobs:
         
         
         echo "DEBUG: Starting kernel compilation"
-        # Final approach: Pure Clang with integrated assembler as Samsung designed
-        # Use only GNU linker for VDSO fixes, let Clang handle everything else
+        # FINAL APPROACH: Use Clang compiler with GNU assembler and GNU linker
+        # This combination should handle ARM64 alternative instructions properly
         PATH="$KERNEL_DIR/toolchain/bin:${PATH}" \
           make -j$(nproc --all) O=out \
           ARCH=arm64 \
