@@ -285,10 +285,10 @@ jobs:
         export OBJCOPY=llvm-objcopy
         export STRIP=llvm-strip
         export LD=ld.lld
-        export AS=aarch64-linux-gnu-as
-        export KCFLAGS="-w -Wno-unknown-warning-option -fno-integrated-as"
+        # REVERT: Use Clang integrated assembler (it actually works better for ARM64)
+        export KCFLAGS="-w -Wno-unknown-warning-option"
         export KBUILD_CFLAGS_KERNEL="-mno-global-merge"
-        export KBUILD_AFLAGS="-fno-integrated-as"
+        # Remove AS override to let Clang handle assembly
         
         # CRITICAL: Set linker properly for ARM64
         export LDFLAGS_MODULE="-T $(pwd)/scripts/module.lds"
@@ -391,13 +391,13 @@ jobs:
           echo "# CONFIG_KNOX_VPN is not set" >> out/.config
           echo "CONFIG_DEBUG_RODATA=y" >> out/.config
           
-          # CRITICAL: Disable VDSO to avoid ARM64 linker issues
+          # CRITICAL: Disable VDSO completely (causes assembly errors with mixed toolchain)
           sed -i '/^CONFIG_COMPAT_VDSO=/d' out/.config
-          echo "# CONFIG_COMPAT_VDSO is not set" >> out/.config
-          
-          # CRITICAL: Disable VDSO completely
           sed -i '/^CONFIG_VDSO=/d' out/.config
+          sed -i '/^CONFIG_ARM64_VDSO=/d' out/.config
+          echo "# CONFIG_COMPAT_VDSO is not set" >> out/.config
           echo "# CONFIG_VDSO is not set" >> out/.config
+          echo "# CONFIG_ARM64_VDSO is not set" >> out/.config
           
           # This will be handled later after all config modifications
           
@@ -492,17 +492,17 @@ jobs:
           echo "# CONFIG_ARM64_PAN is not set" >> out/.config
           echo "# CONFIG_ARM64_UAO is not set" >> out/.config
           
-          # CRITICAL: Try to completely disable alternative instructions if possible
-          if grep -q "CONFIG_HAVE_ARCH_JUMP_LABEL=y" out/.config; then
-            sed -i '/^CONFIG_HAVE_ARCH_JUMP_LABEL=/d' out/.config
-            echo "# CONFIG_HAVE_ARCH_JUMP_LABEL is not set" >> out/.config
-          fi
+          # This is handled below in the comprehensive alternative instructions section
           
-          # CRITICAL: Disable all alternative instruction related features
+          # CRITICAL: Disable all alternative instruction related features  
           sed -i '/^CONFIG_JUMP_LABEL=/d' out/.config
           sed -i '/^CONFIG_STATIC_KEYS=/d' out/.config
+          sed -i '/^CONFIG_HAVE_ARCH_JUMP_LABEL=/d' out/.config
+          sed -i '/^CONFIG_ARM64_LSE_ATOMICS=/d' out/.config
           echo "# CONFIG_JUMP_LABEL is not set" >> out/.config
           echo "# CONFIG_STATIC_KEYS is not set" >> out/.config
+          echo "# CONFIG_HAVE_ARCH_JUMP_LABEL is not set" >> out/.config
+          echo "# CONFIG_ARM64_LSE_ATOMICS is not set" >> out/.config
           
           # CRITICAL: Force disable problematic Cortex-A53 errata that use alternatives
           sed -i '/^CONFIG_ARM64_ERRATUM_826319=/d' out/.config
@@ -569,23 +569,21 @@ jobs:
         
         
         echo "DEBUG: Starting kernel compilation"
-        # FINAL APPROACH: Use Clang compiler with GNU assembler and GNU linker
-        # This combination should handle ARM64 alternative instructions properly
+        # FINAL APPROACH: Pure LLVM/Clang toolchain with VDSO disabled
+        # Using Clang integrated assembler + LLVM linker to avoid GNU compatibility issues
         PATH="$KERNEL_DIR/toolchain/bin:${PATH}" \
           make -j$(nproc --all) O=out \
           ARCH=arm64 \
           SUBARCH=arm64 \
           ANDROID_MAJOR_VERSION=${{ env.ANDROID }} \
           CC=clang \
-          LD=aarch64-linux-gnu-ld \
-          AS=aarch64-linux-gnu-as \
+          LD=ld.lld \
           AR=llvm-ar \
           NM=llvm-nm \
           OBJCOPY=llvm-objcopy \
           OBJDUMP=llvm-objdump \
           STRIP=llvm-strip \
-          KCFLAGS="-w -Wno-unknown-warning-option -fno-integrated-as" \
-          KBUILD_AFLAGS="-fno-integrated-as" \
+          KCFLAGS="-w -Wno-unknown-warning-option" \
           LD_LIBRARY_PATH="$KERNEL_DIR/toolchain/lib:$LD_LIBRARY_PATH" \
           CLANG_TRIPLE=aarch64-linux-gnu- \
           CROSS_COMPILE=$CROSS_COMPILE \
