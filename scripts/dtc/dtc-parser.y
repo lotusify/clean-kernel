@@ -36,6 +36,8 @@ extern struct dt_info *parser_output;
 extern bool treesource_error;
 %}
 
+%locations
+
 %union {
 	char *propnodename;
 	char *labelref;
