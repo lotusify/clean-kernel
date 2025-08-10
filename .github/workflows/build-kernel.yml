@@ -256,6 +256,11 @@ jobs:
           sed -i '/^CONFIG_SECURITY_DEFEX=/d' out/.config
           sed -i '/^CONFIG_PROCA=/d' out/.config
           sed -i '/^CONFIG_FIVE=/d' out/.config
+          sed -i '/^CONFIG_TIMA=/d' out/.config
+          sed -i '/^CONFIG_TIMA_RKP=/d' out/.config
+          sed -i '/^CONFIG_TIMA_FMP=/d' out/.config
+          sed -i '/^CONFIG_TIMA_LKMAUTH=/d' out/.config
+          sed -i '/^CONFIG_TIMA_LKM_BLOCK=/d' out/.config
           
           # Disable main Samsung security features
           echo "# CONFIG_UH is not set" >> out/.config
@@ -267,6 +272,11 @@ jobs:
           echo "# CONFIG_SECURITY_DEFEX is not set" >> out/.config
           echo "# CONFIG_PROCA is not set" >> out/.config
           echo "# CONFIG_FIVE is not set" >> out/.config
+          echo "# CONFIG_TIMA is not set" >> out/.config
+          echo "# CONFIG_TIMA_RKP is not set" >> out/.config
+          echo "# CONFIG_TIMA_FMP is not set" >> out/.config
+          echo "# CONFIG_TIMA_LKMAUTH is not set" >> out/.config
+          echo "# CONFIG_TIMA_LKM_BLOCK is not set" >> out/.config
           
           # Additional Samsung security features to disable
           sed -i '/^CONFIG_SECURITY_DSMS=/d' out/.config
@@ -276,9 +286,7 @@ jobs:
           sed -i '/^CONFIG_KNOX_KAP=/d' out/.config
           sed -i '/^CONFIG_KNOX_NCM=/d' out/.config
           sed -i '/^CONFIG_KNOX_VPN=/d' out/.config
-          sed -i '/^CONFIG_TIMA=/d' out/.config
-          sed -i '/^CONFIG_TIMA_RKP=/d' out/.config
-          sed -i '/^CONFIG_TIMA_FMP=/d' out/.config
+          sed -i '/^CONFIG_DEBUG_RODATA=/d' out/.config
           
           echo "# CONFIG_SECURITY_DSMS is not set" >> out/.config
           echo "# CONFIG_SEC_RESTRICT_SETUID is not set" >> out/.config
@@ -287,9 +295,11 @@ jobs:
           echo "# CONFIG_KNOX_KAP is not set" >> out/.config
           echo "# CONFIG_KNOX_NCM is not set" >> out/.config
           echo "# CONFIG_KNOX_VPN is not set" >> out/.config
-          echo "# CONFIG_TIMA is not set" >> out/.config
-          echo "# CONFIG_TIMA_RKP is not set" >> out/.config
-          echo "# CONFIG_TIMA_FMP is not set" >> out/.config
+          echo "CONFIG_DEBUG_RODATA=y" >> out/.config
+          
+          # CRITICAL: Use 'yes' to automatically answer prompts without overwriting configs
+          echo "🔧 DEBUG: Automatically answering config prompts without overwriting custom configs..."
+          yes "" | make O=out ARCH=arm64 ANDROID_MAJOR_VERSION=${{ env.ANDROID }} oldconfig > /dev/null 2>&1 || true
           
           echo "🔒 DEBUG: Samsung RKP/Knox security features disabled successfully!"
         fi
@@ -399,7 +409,11 @@ jobs:
                 "CONFIG_FIVE"
                 "CONFIG_TIMA"
                 "CONFIG_TIMA_RKP"
+                "CONFIG_TIMA_LKMAUTH"
+                "CONFIG_TIMA_LKM_BLOCK"
+                "CONFIG_TIMA_FMP"
                 "CONFIG_KNOX_KAP"
+                "CONFIG_SEC_RESTRICT_ROOTING"
             )
             
             echo "---"
