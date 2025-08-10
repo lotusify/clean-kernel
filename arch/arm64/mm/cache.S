@@ -22,7 +22,7 @@
 #include <linux/init.h>
 #include <asm/assembler.h>
 #include <asm/cpufeature.h>
-#include <asm/alternative-clang.h>
+#include <asm/alternative.h>
 #include <asm/uaccess.h>
 
 /*
