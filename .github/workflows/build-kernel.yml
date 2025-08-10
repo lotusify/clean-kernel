@@ -64,7 +64,7 @@ jobs:
       id: cache-proton
       with:
         path: proton-clang
-        key: proton-clang-${{ runner.os }}-${{ hashFiles('**/build-kernel.yml') }}
+        key: proton-clang-${{ runner.os }}-stable
         restore-keys: |
           proton-clang-${{ runner.os }}-
 
@@ -97,17 +97,21 @@ jobs:
         bc bison flex unzip ca-certificates xz-utils \
         mkbootimg cpio device-tree-compiler git git-lfs gawk
         
-        # Setup toolchain directory structure like build.sh expects
+        # Setup toolchain directory structure
         if [ "${{ steps.cache-proton.outputs.cache-hit }}" != 'true' ]; then
           echo "Cache for proton-clang missed. Cloning..."
           rm -rf proton-clang
           git clone https://github.com/kdrag0n/proton-clang --depth=1 -b master
+          echo "✅ Downloaded proton-clang"
         else
-          echo "Cache for proton-clang hit. Skipping clone."
+          echo "✅ Cache for proton-clang hit. Using cached version."
         fi
         
         # Create toolchain symlink like build.sh expects
         ln -sf proton-clang toolchain
+        
+        # Verify toolchain
+        ls -la toolchain/bin/ | head -10
 
     - name: 'Patch KernelSU manual scope-minimized hooks into the kernel source'
       run: |
@@ -143,60 +147,19 @@ jobs:
         # Run make clean/mrproper here, AFTER all patches have been applied
         make clean
         make mrproper
-
-    - name: Apply Compilation Fix Patches
-      run: |
-        echo "🔧 Applying compilation fix patches..."
         
-        # Fix 1: include/asm-generic/pgtable.h 
-        if [ -f "include/asm-generic/pgtable.h" ]; then
-          echo "Patching include/asm-generic/pgtable.h..."
-          
-          # Add extern declarations at the top of the file after includes
-          if ! grep -q "extern unsigned long zero_pfn __read_mostly;" include/asm-generic/pgtable.h; then
-            # Find line with first #ifdef and insert before it
-            sed -i '/^#ifdef CONFIG_MMU/i extern unsigned long zero_pfn __read_mostly;' include/asm-generic/pgtable.h
-            sed -i '/^extern unsigned long zero_pfn __read_mostly;/a extern unsigned long uksm_zero_pfn __read_mostly;' include/asm-generic/pgtable.h
-          fi
-          
-          echo "✅ Fixed include/asm-generic/pgtable.h"
-        else
-          echo "⚠️ include/asm-generic/pgtable.h not found, skipping patch"
+        # Fix permissions for build scripts
+        chmod +x scripts/clang-android.sh 2>/dev/null || true
+        
+        # Fix dtc multiple definition issue
+        if [ -f "scripts/dtc/dtc-lexer.lex.c" ]; then
+          sed -i 's/YYLTYPE yylloc;/extern YYLTYPE yylloc;/' scripts/dtc/dtc-lexer.lex.c 2>/dev/null || true
         fi
         
-        # Fix 2: Fix permissions for clang-android.sh
-        if [ -f "scripts/clang-android.sh" ]; then
-          chmod +x scripts/clang-android.sh
-          echo "✅ Fixed clang-android.sh permissions"
+        # Fix gettimeofday.S assembly issue
+        if [ -f "arch/arm64/kernel/vdso/gettimeofday.S" ]; then
+          sed -i 's/clock_gettime_return, shift=1/clock_gettime_return shift=1/' arch/arm64/kernel/vdso/gettimeofday.S 2>/dev/null || true
         fi
-        
-        # Fix 3: s6d7at0b_a10_lcd_ctrl.c - Fix brightness calculation
-        if [ -f "drivers/video/fbdev/exynos/dpu_7885/panels/s6d7at0b_a10_lcd_ctrl.c" ]; then
-          echo "Patching s6d7at0b_a10_lcd_ctrl.c brightness calculation..."
-          
-          # Replace the specific brightness calculation line
-          sed -i 's/int value = lcd->custom_brightness \* 1\.2;/int value = (lcd->custom_brightness * 12) \/ 10;/' \
-            drivers/video/fbdev/exynos/dpu_7885/panels/s6d7at0b_a10_lcd_ctrl.c
-            
-          echo "✅ Fixed s6d7at0b_a10_lcd_ctrl.c brightness calculation"
-        else
-          echo "⚠️ s6d7at0b_a10_lcd_ctrl.c not found, skipping patch"
-        fi
-        
-        # Fix 4: decon_reg.c - Fix data type from double to long
-        if [ -f "drivers/video/fbdev/exynos/dpu_7885/decon_reg.c" ]; then
-          echo "Patching decon_reg.c data type..."
-          
-          # Replace double with long in decon_clocks_table declaration
-          sed -i 's/const double decon_clocks_table\[\]\[CLK_ID_MAX\]/const long decon_clocks_table[][CLK_ID_MAX]/' \
-            drivers/video/fbdev/exynos/dpu_7885/decon_reg.c
-            
-          echo "✅ Fixed decon_reg.c data type"
-        else
-          echo "⚠️ decon_reg.c not found, skipping patch"
-        fi
-        
-        echo "✅ All compilation fix patches applied successfully!"
 
     - name: Configure Build Parameters
       run: |
