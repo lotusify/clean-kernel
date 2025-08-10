@@ -167,6 +167,12 @@ jobs:
           sed -i 's|cmd_vdsold = \$(CC) \$(c_flags) -Wl,-n -Wl,-T \$\^ -o \$@|cmd_vdsold = /usr/bin/aarch64-linux-gnu-ld -n -T $(word 1,\$^) $(filter-out $(word 1,\$^),\$^) -o \$@|' arch/arm64/kernel/vdso/Makefile 2>/dev/null || true
           echo "🔧 DEBUG: Fixed VDSO Makefile to use GNU ld directly"
         fi
+        
+        # Fix ARM64 assembly issues with Clang
+        if [ -f "arch/arm64/include/asm/alternative.h" ]; then
+          # Fix alternative_insn macro issues
+          sed -i 's/alternative_insn.*$/alternative_insn _orig, _alt, _cap/' arch/arm64/include/asm/alternative.h 2>/dev/null || true
+        fi
 
     - name: Configure Build Parameters
       run: |
@@ -235,7 +241,7 @@ jobs:
         export OBJCOPY=llvm-objcopy
         export STRIP=llvm-strip
         export LD=ld.lld
-        export KCFLAGS=-w
+        export KCFLAGS="-w -Wno-unknown-warning-option"
         
         # CRITICAL: Set linker properly for ARM64
         export LDFLAGS_MODULE="-T $(pwd)/scripts/module.lds"
@@ -489,8 +495,8 @@ jobs:
         
         
         echo "DEBUG: Starting kernel compilation"
-        # Build exactly like build.sh with proper linker configuration  
-        # CRITICAL: Use ld.lld but disable VDSO to avoid ARM64 issues
+        # Build with hybrid approach: GCC for assembly, Clang for C code
+        # CRITICAL: Use GCC for problematic ARM64 assembly files
         PATH="$KERNEL_DIR/toolchain/bin:${PATH}" \
           make -j$(nproc --all) O=out \
           ARCH=arm64 \
@@ -503,6 +509,7 @@ jobs:
           OBJDUMP=llvm-objdump \
           STRIP=llvm-strip \
           CC=clang \
+          AS=/usr/bin/aarch64-linux-gnu-as \
           LD_LIBRARY_PATH="$KERNEL_DIR/toolchain/lib:$LD_LIBRARY_PATH" \
           CLANG_TRIPLE=aarch64-linux-gnu- \
           CROSS_COMPILE=$CROSS_COMPILE \
