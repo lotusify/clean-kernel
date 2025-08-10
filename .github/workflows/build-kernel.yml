@@ -163,9 +163,9 @@ jobs:
         
         # Fix VDSO linker script issues for ARM64
         if [ -f "arch/arm64/kernel/vdso/Makefile" ]; then
-          # Don't modify CC - keep using clang
-          # Instead, fix linker emulation mode specifically
-          sed -i 's/aarch64linux/aarch64_elf64_le/' arch/arm64/kernel/vdso/Makefile 2>/dev/null || true
+          # Fix VDSO linker command to use system GNU ld directly
+          sed -i 's|cmd_vdsold = \$(CC) \$(c_flags) -Wl,-n -Wl,-T \$\^ -o \$@|cmd_vdsold = /usr/bin/aarch64-linux-gnu-ld -n -T $(word 1,\$^) $(filter-out $(word 1,\$^),\$^) -o \$@|' arch/arm64/kernel/vdso/Makefile 2>/dev/null || true
+          echo "🔧 DEBUG: Fixed VDSO Makefile to use GNU ld directly"
         fi
 
     - name: Configure Build Parameters
@@ -210,6 +210,9 @@ jobs:
         export GCC_ARM32_FILE=arm-linux-gnueabi-
         export CROSS_COMPILE=$(pwd)/toolchain/bin/$GCC_ARM64_FILE
         export CROSS_COMPILE_ARM32=$(pwd)/toolchain/bin/$GCC_ARM32_FILE
+        
+        # CRITICAL: For VDSO, we need GNU binutils cross compiler
+        export CROSS_COMPILE_GNU=/usr/bin/aarch64-linux-gnu-
         
         # Build variables like build.sh
         export KBUILD_BUILD_USER=CleanKernel
