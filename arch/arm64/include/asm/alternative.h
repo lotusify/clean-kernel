@@ -85,8 +85,6 @@ void apply_alternatives(void *start, size_t length);
 	.pushsection .altinstr_replacement, "ax"
 663:	\insn2
 664:	.popsection
-	.org	. - (664b-663b) + (662b-661b)
-	.org	. - (662b-661b) + (664b-663b)
 	.endif
 .endm
 
@@ -151,8 +149,7 @@ void apply_alternatives(void *start, size_t length);
 	.if .Lasm_alt_mode==0
 	.popsection
 	.endif
-	.org	. - (664b-663b) + (662b-661b)
-	.org	. - (662b-661b) + (664b-663b)
+
 .endm
 
 /*

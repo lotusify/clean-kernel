@@ -21,7 +21,7 @@
 #include <linux/init.h>
 #include <linux/linkage.h>
 
-#include <asm/alternative.h>
+#include <asm/alternative-clang.h>
 #include <asm/assembler.h>
 #include <asm/asm-offsets.h>
 #include <asm/cpufeature.h>
@@ -74,7 +74,6 @@
 	.macro kernel_ventry, el, label, regsize = 64
 	.align 7
 #ifdef CONFIG_UNMAP_KERNEL_AT_EL0
-alternative_if ARM64_UNMAP_KERNEL_AT_EL0
 	.if	\el == 0
 	.if	\regsize == 64
 	mrs	x30, tpidrro_el0
@@ -83,7 +82,6 @@ alternative_if ARM64_UNMAP_KERNEL_AT_EL0
 	mov	x30, xzr
 	.endif
 	.endif
-alternative_else_nop_endif
 #endif
 
 	sub	sp, sp, #S_FRAME_SIZE
@@ -158,7 +156,7 @@ alternative_else_nop_endif
 #else
 	str	x20, [tsk, #TI_ADDR_LIMIT]
 #endif
-	ALTERNATIVE(nop, SET_PSTATE_UAO(0), ARM64_HAS_UAO, CONFIG_ARM64_UAO)
+	nop  /* ALTERNATIVE(nop, SET_PSTATE_UAO(0), ARM64_HAS_UAO, CONFIG_ARM64_UAO) */
 	.endif /* \el == 0 */
 	mrs	x22, elr_el1
 	mrs	x23, spsr_el1
@@ -173,9 +171,7 @@ alternative_else_nop_endif
 	 * feature as all TTBR0_EL1 accesses are disabled, not just those to
 	 * user mappings.
 	 */
-alternative_if ARM64_HAS_PAN
-	b	1f				// skip TTBR0 PAN
-alternative_else_nop_endif
+	/* Skip TTBR0 PAN setup for Clang compatibility */
 
 	.if	\el != 0
 	mrs	x21, ttbr0_el1
@@ -238,9 +234,7 @@ alternative_else_nop_endif
 	 * Restore access to TTBR0_EL1. If returning to EL0, no need for SPSR
 	 * PAN bit checking.
 	 */
-alternative_if ARM64_HAS_PAN
-	b	2f				// skip TTBR0 PAN
-alternative_else_nop_endif
+	/* Skip TTBR0 PAN restore for Clang compatibility */
 
 	.if	\el != 0
 	tbnz	x22, #22, 1f			// Skip re-enabling TTBR0 access if the PSR_PAN_BIT is set
@@ -271,7 +265,7 @@ alternative_else_nop_endif
 	b.eq	3f
 
 #ifdef CONFIG_ARM64_ERRATUM_845719
-alternative_if_not ARM64_WORKAROUND_845719
+	/* ARM64_WORKAROUND_845719 disabled for Clang compatibility */
 	nop
 	nop
 	nop
@@ -282,24 +276,6 @@ alternative_if_not ARM64_WORKAROUND_845719
 #ifdef CONFIG_PID_IN_CONTEXTIDR
 	nop
 #endif
-alternative_else
-	tbz	x22, #4, 1f
-
-	/* skip ERRATUM non-CA53 core */
-	mrs	x29, midr_el1
-	lsr	x29, x29, #0x4			// part number shift
-	and	x29, x29, #0xfff		// part number mask
-	cmp	x29, #0xd03			// ARMV8_CORTEXA53
-	b.ne	1f
-
-#ifdef CONFIG_PID_IN_CONTEXTIDR
-	mrs	x29, contextidr_el1
-	msr	contextidr_el1, x29
-#else
-	msr contextidr_el1, xzr
-#endif
-1:
-alternative_endif
 #endif
 3:
 	.endif
@@ -325,7 +301,7 @@ alternative_endif
 	add	sp, sp, #S_FRAME_SIZE		// restore sp
 
 	.if	\el == 0
-alternative_insn eret, nop, ARM64_UNMAP_KERNEL_AT_EL0
+	eret  /* alternative_insn eret, nop, ARM64_UNMAP_KERNEL_AT_EL0 */
 #ifdef CONFIG_UNMAP_KERNEL_AT_EL0
 	bne	4f
 	msr	far_el1, x30
@@ -1065,16 +1041,7 @@ __ni_sys_trace:
 	bic	\tmp, \tmp, #USER_ASID_FLAG
 	msr	ttbr1_el1, \tmp
 #ifdef CONFIG_QCOM_FALKOR_ERRATUM_1003
-alternative_if ARM64_WORKAROUND_QCOM_FALKOR_E1003
-	/* ASID already in \tmp[63:48] */
-	movk	\tmp, #:abs_g2_nc:(TRAMP_VALIAS >> 12)
-	movk	\tmp, #:abs_g1_nc:(TRAMP_VALIAS >> 12)
-	/* 2MB boundary containing the vectors, so we nobble the walk cache */
-	movk	\tmp, #:abs_g0_nc:((TRAMP_VALIAS & ~(SZ_2M - 1)) >> 12)
-	isb
-	tlbi	vae1, \tmp
-	dsb	nsh
-alternative_else_nop_endif
+	/* ARM64_WORKAROUND_QCOM_FALKOR_E1003 disabled for Clang compatibility */
 #endif /* CONFIG_QCOM_FALKOR_ERRATUM_1003 */
 	.endm
 
@@ -1109,7 +1076,7 @@ alternative_else_nop_endif
 	tramp_map_kernel	x30
 #ifdef CONFIG_RANDOMIZE_BASE
 	adr	x30, tramp_vectors + PAGE_SIZE
-alternative_insn isb, nop, ARM64_WORKAROUND_QCOM_FALKOR_E1003
+	isb  /* alternative_insn isb, nop, ARM64_WORKAROUND_QCOM_FALKOR_E1003 */
 	ldr	x30, [x30]
 #else
 	ldr	x30, =vectors

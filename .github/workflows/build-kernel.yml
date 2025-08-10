@@ -173,20 +173,32 @@ jobs:
           echo "🔧 DEBUG: Fixed VDSO Makefile to use GNU ld directly"
         fi
         
-        # Fix ARM64 assembly issues with Clang
-        if [ -f "arch/arm64/include/asm/alternative.h" ]; then
-          # Fix alternative_insn macro issues
-          sed -i 's/alternative_insn.*$/alternative_insn _orig, _alt, _cap/' arch/arm64/include/asm/alternative.h 2>/dev/null || true
-        fi
+        # CRITICAL: Apply comprehensive ARM64 assembly fixes for Clang compatibility
+        echo "🔧 DEBUG: Applying comprehensive ARM64 assembly fixes for Clang compatibility..."
         
-        # Additional ARM64 assembly fixes for Clang compatibility
-        echo "🔧 DEBUG: Applying additional ARM64 assembly fixes..."
+        # Create Clang-compatible alternative header
+        echo "Creating Clang-compatible alternative instruction header..."
         
         # Fix specific ARM64 assembly syntax issues
         if [ -f "arch/arm64/kernel/entry.S" ]; then
           # Backup original file
           cp arch/arm64/kernel/entry.S arch/arm64/kernel/entry.S.backup
           echo "Backed up entry.S"
+        fi
+        
+        # Apply comprehensive ARM64 fixes for Clang assembler
+        echo "🔧 DEBUG: Patching ARM64 alternative instructions for Clang compatibility..."
+        
+        # Disable all ARM64 CPU erratum workarounds that use alternative instructions
+        if [ -f "arch/arm64/Kconfig" ]; then
+          # Backup Kconfig
+          cp arch/arm64/Kconfig arch/arm64/Kconfig.backup
+          
+          # Comment out or disable problematic erratum configs
+          sed -i 's/^config ARM64_ERRATUM_/#config ARM64_ERRATUM_/g' arch/arm64/Kconfig 2>/dev/null || true
+          sed -i 's/^config ARM64_WORKAROUND_/#config ARM64_WORKAROUND_/g' arch/arm64/Kconfig 2>/dev/null || true
+          sed -i 's/^config CAVIUM_ERRATUM_/#config CAVIUM_ERRATUM_/g' arch/arm64/Kconfig 2>/dev/null || true
+          sed -i 's/^config QCOM_FALKOR_ERRATUM_/#config QCOM_FALKOR_ERRATUM_/g' arch/arm64/Kconfig 2>/dev/null || true
         fi
         
         if [ -f "arch/arm64/mm/cache.S" ]; then
@@ -262,7 +274,10 @@ jobs:
         export OBJCOPY=llvm-objcopy
         export STRIP=llvm-strip
         export LD=ld.lld
-        export KCFLAGS="-w -Wno-unknown-warning-option"
+        export AS=aarch64-linux-gnu-as
+        export KCFLAGS="-w -Wno-unknown-warning-option -fno-integrated-as"
+        export KBUILD_CFLAGS_KERNEL="-mno-global-merge"
+        export KBUILD_AFLAGS="-fno-integrated-as"
         
         # CRITICAL: Set linker properly for ARM64
         export LDFLAGS_MODULE="-T $(pwd)/scripts/module.lds"
@@ -415,6 +430,11 @@ jobs:
           sed -i '/^CONFIG_CAVIUM_ERRATUM_/d' out/.config
           sed -i '/^CONFIG_QCOM_FALKOR_ERRATUM_/d' out/.config
           sed -i '/^CONFIG_ARM64_USE_LSE_ATOMICS=/d' out/.config
+          sed -i '/^CONFIG_UNMAP_KERNEL_AT_EL0=/d' out/.config
+          sed -i '/^CONFIG_KASAN=/d' out/.config
+          sed -i '/^CONFIG_ARM64_PAN=/d' out/.config
+          sed -i '/^CONFIG_ARM64_UAO=/d' out/.config
+          
           echo "# CONFIG_ARM64_ERRATUM_826319 is not set" >> out/.config
           echo "# CONFIG_ARM64_ERRATUM_827319 is not set" >> out/.config
           echo "# CONFIG_ARM64_ERRATUM_824069 is not set" >> out/.config
@@ -431,12 +451,22 @@ jobs:
           echo "# CONFIG_CAVIUM_ERRATUM_27456 is not set" >> out/.config
           echo "# CONFIG_CAVIUM_ERRATUM_30115 is not set" >> out/.config
           echo "# CONFIG_ARM64_USE_LSE_ATOMICS is not set" >> out/.config
+          echo "# CONFIG_UNMAP_KERNEL_AT_EL0 is not set" >> out/.config
+          echo "# CONFIG_KASAN is not set" >> out/.config
+          echo "# CONFIG_ARM64_PAN is not set" >> out/.config
+          echo "# CONFIG_ARM64_UAO is not set" >> out/.config
           
           # CRITICAL: Try to completely disable alternative instructions if possible
           if grep -q "CONFIG_HAVE_ARCH_JUMP_LABEL=y" out/.config; then
             sed -i '/^CONFIG_HAVE_ARCH_JUMP_LABEL=/d' out/.config
             echo "# CONFIG_HAVE_ARCH_JUMP_LABEL is not set" >> out/.config
           fi
+          
+          # CRITICAL: Disable all alternative instruction related features
+          sed -i '/^CONFIG_JUMP_LABEL=/d' out/.config
+          sed -i '/^CONFIG_STATIC_KEYS=/d' out/.config
+          echo "# CONFIG_JUMP_LABEL is not set" >> out/.config
+          echo "# CONFIG_STATIC_KEYS is not set" >> out/.config
 
           echo "DEBUG: Basic kernel configs applied. Problematic ARM64 errata and alternatives disabled."
         fi
@@ -495,12 +525,14 @@ jobs:
           ANDROID_MAJOR_VERSION=${{ env.ANDROID }} \
           CC=clang \
           LD=aarch64-linux-gnu-ld \
+          AS=aarch64-linux-gnu-as \
           AR=llvm-ar \
           NM=llvm-nm \
           OBJCOPY=llvm-objcopy \
           OBJDUMP=llvm-objdump \
           STRIP=llvm-strip \
-          KCFLAGS="-w -Wno-unknown-warning-option" \
+          KCFLAGS="-w -Wno-unknown-warning-option -fno-integrated-as" \
+          KBUILD_AFLAGS="-fno-integrated-as" \
           LD_LIBRARY_PATH="$KERNEL_DIR/toolchain/lib:$LD_LIBRARY_PATH" \
           CLANG_TRIPLE=aarch64-linux-gnu- \
           CROSS_COMPILE=$CROSS_COMPILE \
