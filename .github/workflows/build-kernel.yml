@@ -504,6 +504,17 @@ jobs:
           echo "CONFIG_EXTRA_FIRMWARE=\"\"" >> out/.config
           echo "# CONFIG_FW_LOADER_USER_HELPER is not set" >> out/.config
           
+          # CRITICAL: Disable empty subsystems causing linker errors
+          sed -i '/^CONFIG_SOUND=/d' out/.config
+          sed -i '/^CONFIG_SND=/d' out/.config
+          sed -i '/^CONFIG_DRM=/d' out/.config
+          sed -i '/^CONFIG_HSI=/d' out/.config
+          
+          echo "# CONFIG_SOUND is not set" >> out/.config
+          echo "# CONFIG_SND is not set" >> out/.config
+          echo "# CONFIG_DRM is not set" >> out/.config
+          echo "# CONFIG_HSI is not set" >> out/.config
+          
           # This is handled below in the comprehensive alternative instructions section
           
           # CRITICAL: Disable all alternative instruction related features  
