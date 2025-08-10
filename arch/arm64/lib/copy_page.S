@@ -19,7 +19,7 @@
 #include <asm/assembler.h>
 #include <asm/page.h>
 #include <asm/cpufeature.h>
-#include <asm/alternative.h>
+#include <asm/alternative-clang.h>
 
 /*
  * Copy a page from src to dest (both are page aligned)
