@@ -163,10 +163,9 @@ jobs:
         
         # Fix VDSO linker script issues for ARM64
         if [ -f "arch/arm64/kernel/vdso/Makefile" ]; then
-          sed -i 's/-melf_aarch64/-maarch64linux/' arch/arm64/kernel/vdso/Makefile 2>/dev/null || true
-          sed -i 's/-melf_aarch64_be/-maarch64linuxb/' arch/arm64/kernel/vdso/Makefile 2>/dev/null || true
-          # Force use GNU ld for VDSO instead of ld.lld
-          sed -i 's/$(CC)/$(CROSS_COMPILE)gcc/' arch/arm64/kernel/vdso/Makefile 2>/dev/null || true
+          # Don't modify CC - keep using clang
+          # Instead, fix linker emulation mode specifically
+          sed -i 's/aarch64linux/aarch64_elf64_le/' arch/arm64/kernel/vdso/Makefile 2>/dev/null || true
         fi
 
     - name: Configure Build Parameters
@@ -312,6 +311,10 @@ jobs:
           # CRITICAL: Disable VDSO to avoid ARM64 linker issues
           sed -i '/^CONFIG_COMPAT_VDSO=/d' out/.config
           echo "# CONFIG_COMPAT_VDSO is not set" >> out/.config
+          
+          # CRITICAL: Disable VDSO completely
+          sed -i '/^CONFIG_VDSO=/d' out/.config
+          echo "# CONFIG_VDSO is not set" >> out/.config
           
           # CRITICAL: Use 'yes' to automatically answer prompts without overwriting configs
           echo "🔧 DEBUG: Automatically answering config prompts without overwriting custom configs..."
@@ -483,8 +486,8 @@ jobs:
         
         
         echo "DEBUG: Starting kernel compilation"
-        # Build exactly like build.sh with proper linker configuration
-        # CRITICAL: Force GNU linker for VDSO compilation
+        # Build exactly like build.sh with proper linker configuration  
+        # CRITICAL: Use ld.lld but disable VDSO to avoid ARM64 issues
         PATH="$KERNEL_DIR/toolchain/bin:${PATH}" \
           make -j$(nproc --all) O=out \
           ARCH=arm64 \
@@ -493,7 +496,7 @@ jobs:
           LLVM_DIS=llvm-dis \
           AR=llvm-ar \
           NM=llvm-nm \
-          LD=/usr/bin/aarch64-linux-gnu-ld \
+          LD=ld.lld \
           OBJDUMP=llvm-objdump \
           STRIP=llvm-strip \
           CC=clang \
