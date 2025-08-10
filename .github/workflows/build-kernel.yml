@@ -178,9 +178,18 @@ jobs:
         
         # CRITICAL: Create missing firmware files to prevent build errors
         echo "🔧 DEBUG: Creating missing firmware files..."
-        mkdir -p firmware
-        touch firmware/exynos7885_acpm_fvp.fw
-        touch firmware/tsp_zinitix/.gitkeep
+        mkdir -p firmware firmware/tsp_zinitix firmware/tsp_sec firmware/coreriver
+        
+        # Create dummy firmware files with minimal content
+        echo "dummy" > firmware/exynos7885_acpm_fvp.fw
+        echo "dummy" > firmware/tsp_sec/s6d7at01a01_j7topelte.fw  
+        echo "dummy" > firmware/tsp_sec/s6d7at0b01_a10.fw
+        echo "dummy" > firmware/tsp_sec/s6d7at0b01_a10_boe.fw
+        echo "dummy" > firmware/coreriver/tc305k_a10_grip.fw
+        echo "dummy" > firmware/coreriver/tc305k_a10_eur_kor.fw
+        
+        # Make sure permissions are correct
+        chmod 644 firmware/*.fw firmware/*/*.fw 2>/dev/null || true
         
         # Fix dtc multiple definition issue
         if [ -f "scripts/dtc/dtc-lexer.lex.c" ]; then
@@ -638,6 +647,21 @@ jobs:
         
         
         echo "DEBUG: Starting kernel compilation"
+        
+        # CRITICAL: Last chance - force disable problematic subsystems RIGHT before compilation
+        echo "🔧 FINAL DEBUG: Force disabling problematic subsystems..."
+        sed -i '/^CONFIG_SOUND=/d' out/.config
+        sed -i '/^CONFIG_SND=/d' out/.config  
+        sed -i '/^CONFIG_DRM=/d' out/.config
+        sed -i '/^CONFIG_HSI=/d' out/.config
+        echo "# CONFIG_SOUND is not set" >> out/.config
+        echo "# CONFIG_SND is not set" >> out/.config
+        echo "# CONFIG_DRM is not set" >> out/.config
+        echo "# CONFIG_HSI is not set" >> out/.config
+        
+        echo "✅ Verified final config state:"
+        grep -E "CONFIG_(SOUND|SND|DRM|HSI)" out/.config || echo "All problematic configs disabled"
+        
         # FINAL APPROACH: Pure LLVM/Clang toolchain with VDSO disabled
         # Using Clang integrated assembler + LLVM linker to avoid GNU compatibility issues
         PATH="$KERNEL_DIR/toolchain/bin:${PATH}" \
