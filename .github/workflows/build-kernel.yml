@@ -408,8 +408,33 @@ jobs:
           echo "# CONFIG_CFI_CLANG is not set" >> out/.config
           echo "# CONFIG_CC_STACKPROTECTOR_STRONG is not set" >> out/.config
           echo "CONFIG_CC_STACKPROTECTOR_REGULAR=y" >> out/.config
+          
+          # CRITICAL: Disable ARM64 alternative instructions causing assembly errors
+          sed -i '/^CONFIG_ARM64_ERRATUM_/d' out/.config
+          sed -i '/^CONFIG_ARM64_WORKAROUND_/d' out/.config
+          sed -i '/^CONFIG_CAVIUM_ERRATUM_/d' out/.config
+          sed -i '/^CONFIG_QCOM_FALKOR_ERRATUM_/d' out/.config
+          sed -i '/^CONFIG_ARM64_USE_LSE_ATOMICS=/d' out/.config
+          echo "# CONFIG_ARM64_ERRATUM_826319 is not set" >> out/.config
+          echo "# CONFIG_ARM64_ERRATUM_827319 is not set" >> out/.config
+          echo "# CONFIG_ARM64_ERRATUM_824069 is not set" >> out/.config
+          echo "# CONFIG_ARM64_ERRATUM_819472 is not set" >> out/.config
+          echo "# CONFIG_ARM64_ERRATUM_832075 is not set" >> out/.config
+          echo "# CONFIG_ARM64_ERRATUM_834220 is not set" >> out/.config
+          echo "# CONFIG_ARM64_ERRATUM_845719 is not set" >> out/.config
+          echo "# CONFIG_ARM64_ERRATUM_843419 is not set" >> out/.config
+          echo "# CONFIG_CAVIUM_ERRATUM_22375 is not set" >> out/.config
+          echo "# CONFIG_CAVIUM_ERRATUM_23154 is not set" >> out/.config
+          echo "# CONFIG_CAVIUM_ERRATUM_27456 is not set" >> out/.config
+          echo "# CONFIG_ARM64_USE_LSE_ATOMICS is not set" >> out/.config
+          
+          # CRITICAL: Try to completely disable alternative instructions if possible
+          if grep -q "CONFIG_HAVE_ARCH_JUMP_LABEL=y" out/.config; then
+            sed -i '/^CONFIG_HAVE_ARCH_JUMP_LABEL=/d' out/.config
+            echo "# CONFIG_HAVE_ARCH_JUMP_LABEL is not set" >> out/.config
+          fi
 
-          echo "DEBUG: Basic kernel configs applied. KernelSU configs disabled for compilation testing."
+          echo "DEBUG: Basic kernel configs applied. Problematic ARM64 errata and alternatives disabled."
         fi
 
             ############################################################################
