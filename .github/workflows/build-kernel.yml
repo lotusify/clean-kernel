@@ -402,9 +402,12 @@ jobs:
           sed -i '/^CONFIG_LTO=/d' out/.config
           sed -i '/^CONFIG_LTO_CLANG=/d' out/.config
           sed -i '/^CONFIG_CFI_CLANG=/d' out/.config
+          sed -i '/^CONFIG_CC_STACKPROTECTOR_STRONG=/d' out/.config
           echo "# CONFIG_LTO is not set" >> out/.config
           echo "# CONFIG_LTO_CLANG is not set" >> out/.config
           echo "# CONFIG_CFI_CLANG is not set" >> out/.config
+          echo "# CONFIG_CC_STACKPROTECTOR_STRONG is not set" >> out/.config
+          echo "CONFIG_CC_STACKPROTECTOR_REGULAR=y" >> out/.config
 
           echo "DEBUG: Basic kernel configs applied. KernelSU configs disabled for compilation testing."
         fi
@@ -454,21 +457,21 @@ jobs:
         
         
         echo "DEBUG: Starting kernel compilation"
-        # Smart hybrid approach: Clang for C/Assembly but with specific flags to avoid assembly errors
-        # Force integrated-as to off to use GNU assembler for assembly files
+        # Simple approach: Use Clang with integrated assembler (default)
+        # But with specific CFLAGS to avoid problematic features
         PATH="$KERNEL_DIR/toolchain/bin:${PATH}" \
           make -j$(nproc --all) O=out \
           ARCH=arm64 \
           SUBARCH=arm64 \
           ANDROID_MAJOR_VERSION=${{ env.ANDROID }} \
-          CC="clang -no-integrated-as" \
-          AS=aarch64-linux-gnu-as \
+          CC=clang \
           LD=aarch64-linux-gnu-ld \
           AR=llvm-ar \
           NM=llvm-nm \
           OBJCOPY=llvm-objcopy \
           OBJDUMP=llvm-objdump \
           STRIP=llvm-strip \
+          KCFLAGS="-w -Wno-unknown-warning-option -fno-integrated-as" \
           LD_LIBRARY_PATH="$KERNEL_DIR/toolchain/lib:$LD_LIBRARY_PATH" \
           CLANG_TRIPLE=aarch64-linux-gnu- \
           CROSS_COMPILE=$CROSS_COMPILE \
