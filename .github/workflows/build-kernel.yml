@@ -239,6 +239,61 @@ jobs:
         echo "DEBUG: Making defconfig"
         make O=out ARCH=arm64 ANDROID_MAJOR_VERSION=${{ env.ANDROID }} ${{ env.KERNEL_DEFCONFIG }} > /dev/null
 
+        # 🔒 DISABLE SAMSUNG SECURITY FEATURES AUTOMATICALLY
+        echo "🔒 DEBUG: Disabling Samsung RKP/Knox security features..."
+        if [ -f "out/.config" ]; then
+          # Disable Samsung Securities and Knox Protection
+          # This disables Samsung's Real-time Kernel Protection (RKP)
+          # and other security features that may interfere with kernel modifications
+          
+          # Remove existing Samsung security configs
+          sed -i '/^CONFIG_UH=/d' out/.config
+          sed -i '/^CONFIG_UH_RKP=/d' out/.config
+          sed -i '/^CONFIG_UH_LKMAUTH=/d' out/.config
+          sed -i '/^CONFIG_UH_LKM_BLOCK=/d' out/.config
+          sed -i '/^CONFIG_RKP_CFP_JOPP=/d' out/.config
+          sed -i '/^CONFIG_RKP_CFP=/d' out/.config
+          sed -i '/^CONFIG_SECURITY_DEFEX=/d' out/.config
+          sed -i '/^CONFIG_PROCA=/d' out/.config
+          sed -i '/^CONFIG_FIVE=/d' out/.config
+          
+          # Disable main Samsung security features
+          echo "# CONFIG_UH is not set" >> out/.config
+          echo "# CONFIG_UH_RKP is not set" >> out/.config
+          echo "# CONFIG_UH_LKMAUTH is not set" >> out/.config
+          echo "# CONFIG_UH_LKM_BLOCK is not set" >> out/.config
+          echo "# CONFIG_RKP_CFP_JOPP is not set" >> out/.config
+          echo "# CONFIG_RKP_CFP is not set" >> out/.config
+          echo "# CONFIG_SECURITY_DEFEX is not set" >> out/.config
+          echo "# CONFIG_PROCA is not set" >> out/.config
+          echo "# CONFIG_FIVE is not set" >> out/.config
+          
+          # Additional Samsung security features to disable
+          sed -i '/^CONFIG_SECURITY_DSMS=/d' out/.config
+          sed -i '/^CONFIG_SEC_RESTRICT_SETUID=/d' out/.config
+          sed -i '/^CONFIG_SEC_RESTRICT_FORK=/d' out/.config
+          sed -i '/^CONFIG_SEC_RESTRICT_ROOTING=/d' out/.config
+          sed -i '/^CONFIG_KNOX_KAP=/d' out/.config
+          sed -i '/^CONFIG_KNOX_NCM=/d' out/.config
+          sed -i '/^CONFIG_KNOX_VPN=/d' out/.config
+          sed -i '/^CONFIG_TIMA=/d' out/.config
+          sed -i '/^CONFIG_TIMA_RKP=/d' out/.config
+          sed -i '/^CONFIG_TIMA_FMP=/d' out/.config
+          
+          echo "# CONFIG_SECURITY_DSMS is not set" >> out/.config
+          echo "# CONFIG_SEC_RESTRICT_SETUID is not set" >> out/.config
+          echo "# CONFIG_SEC_RESTRICT_FORK is not set" >> out/.config
+          echo "# CONFIG_SEC_RESTRICT_ROOTING is not set" >> out/.config
+          echo "# CONFIG_KNOX_KAP is not set" >> out/.config
+          echo "# CONFIG_KNOX_NCM is not set" >> out/.config
+          echo "# CONFIG_KNOX_VPN is not set" >> out/.config
+          echo "# CONFIG_TIMA is not set" >> out/.config
+          echo "# CONFIG_TIMA_RKP is not set" >> out/.config
+          echo "# CONFIG_TIMA_FMP is not set" >> out/.config
+          
+          echo "🔒 DEBUG: Samsung RKP/Knox security features disabled successfully!"
+        fi
+
         # CRITICAL: Apply KSU configs exactly like build.sh to prevent bootloop
         echo "DEBUG: Adding debug configurations for bootloop investigation"
         if [ -f "out/.config" ]; then
@@ -333,6 +388,18 @@ jobs:
                 "CONFIG_LTO"
                 "CONFIG_LTO_CLANG"
                 "CONFIG_CFI_CLANG"
+                "CONFIG_UH"
+                "CONFIG_UH_RKP"
+                "CONFIG_UH_LKMAUTH"
+                "CONFIG_UH_LKM_BLOCK"
+                "CONFIG_RKP_CFP_JOPP"
+                "CONFIG_RKP_CFP"
+                "CONFIG_SECURITY_DEFEX"
+                "CONFIG_PROCA"
+                "CONFIG_FIVE"
+                "CONFIG_TIMA"
+                "CONFIG_TIMA_RKP"
+                "CONFIG_KNOX_KAP"
             )
             
             echo "---"
@@ -458,3 +525,12 @@ jobs:
         echo "- ✅ Scope-minimized hooks" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Compilation fixes applied" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Stock kernel configuration" >> $GITHUB_STEP_SUMMARY
+        echo "- 🔒 Samsung RKP/Knox security disabled" >> $GITHUB_STEP_SUMMARY
+
+    # Save Proton-Clang cache regardless of build success/failure
+    - name: Save Proton-Clang Cache (Always)
+      uses: actions/cache/save@v3
+      if: always() && steps.cache-proton.outputs.cache-hit != 'true'
+      with:
+        path: proton-clang
+        key: proton-clang-${{ runner.os }}-stable
