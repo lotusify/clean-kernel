@@ -495,21 +495,21 @@ jobs:
         
         
         echo "DEBUG: Starting kernel compilation"
-        # Build with hybrid approach: GCC for assembly, Clang for C code
-        # CRITICAL: Use GCC for problematic ARM64 assembly files
+        # Build with hybrid approach: GCC binutils for assembly, Clang for C code
+        # CRITICAL: Use GNU binutils for ARM64 assembly compatibility
         PATH="$KERNEL_DIR/toolchain/bin:${PATH}" \
           make -j$(nproc --all) O=out \
           ARCH=arm64 \
           SUBARCH=arm64 \
           ANDROID_MAJOR_VERSION=${{ env.ANDROID }} \
-          LLVM_DIS=llvm-dis \
-          AR=llvm-ar \
-          NM=llvm-nm \
-          LD=ld.lld \
-          OBJDUMP=llvm-objdump \
-          STRIP=llvm-strip \
           CC=clang \
-          AS=/usr/bin/aarch64-linux-gnu-as \
+          AS=aarch64-linux-gnu-as \
+          LD=aarch64-linux-gnu-ld \
+          AR=aarch64-linux-gnu-ar \
+          NM=aarch64-linux-gnu-nm \
+          OBJCOPY=aarch64-linux-gnu-objcopy \
+          OBJDUMP=aarch64-linux-gnu-objdump \
+          STRIP=aarch64-linux-gnu-strip \
           LD_LIBRARY_PATH="$KERNEL_DIR/toolchain/lib:$LD_LIBRARY_PATH" \
           CLANG_TRIPLE=aarch64-linux-gnu- \
           CROSS_COMPILE=$CROSS_COMPILE \
