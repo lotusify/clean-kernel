@@ -152,22 +152,25 @@ jobs:
         if [ -f "include/asm-generic/pgtable.h" ]; then
           echo "Patching include/asm-generic/pgtable.h..."
           
-          # Find and add extern declarations before the first static inline function
-          # Add the extern declarations if they don't exist
-          if ! grep -q "extern unsigned long uksm_zero_pfn __read_mostly;" include/asm-generic/pgtable.h; then
-            sed -i '/^#ifdef CONFIG_UKSM$/i\
-          extern unsigned long uksm_zero_pfn __read_mostly;\
-          extern unsigned long zero_pfn __read_mostly;' include/asm-generic/pgtable.h
+          # Add extern declarations at the top of the file after includes
+          if ! grep -q "extern unsigned long zero_pfn __read_mostly;" include/asm-generic/pgtable.h; then
+            # Find line with first #ifdef and insert before it
+            sed -i '/^#ifdef CONFIG_MMU/i extern unsigned long zero_pfn __read_mostly;' include/asm-generic/pgtable.h
+            sed -i '/^extern unsigned long zero_pfn __read_mostly;/a extern unsigned long uksm_zero_pfn __read_mostly;' include/asm-generic/pgtable.h
           fi
           
-          # Remove standalone extern lines inside functions (the problematic ones)
-          sed -i '/^\s*extern __read_mostly unsigned long uksm_zero_pfn;$/d' include/asm-generic/pgtable.h
-          sed -i '/^\s*extern unsigned long zero_pfn;$/d' include/asm-generic/pgtable.h
-          
           echo "✅ Fixed include/asm-generic/pgtable.h"
+        else
+          echo "⚠️ include/asm-generic/pgtable.h not found, skipping patch"
         fi
         
-        # Fix 2: s6d7at0b_a10_lcd_ctrl.c - Fix brightness calculation
+        # Fix 2: Fix permissions for clang-android.sh
+        if [ -f "scripts/clang-android.sh" ]; then
+          chmod +x scripts/clang-android.sh
+          echo "✅ Fixed clang-android.sh permissions"
+        fi
+        
+        # Fix 3: s6d7at0b_a10_lcd_ctrl.c - Fix brightness calculation
         if [ -f "drivers/video/fbdev/exynos/dpu_7885/panels/s6d7at0b_a10_lcd_ctrl.c" ]; then
           echo "Patching s6d7at0b_a10_lcd_ctrl.c brightness calculation..."
           
@@ -180,7 +183,7 @@ jobs:
           echo "⚠️ s6d7at0b_a10_lcd_ctrl.c not found, skipping patch"
         fi
         
-        # Fix 3: decon_reg.c - Fix data type from double to long
+        # Fix 4: decon_reg.c - Fix data type from double to long
         if [ -f "drivers/video/fbdev/exynos/dpu_7885/decon_reg.c" ]; then
           echo "Patching decon_reg.c data type..."
           
